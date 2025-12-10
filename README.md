@@ -5,11 +5,8 @@
 SourcePoint is a polymorphic C2 profile generator for Cobalt Strike C2s, written in Go. SourcePoint allows unique C2 profiles to be generated on the fly that helps reduce our Indicators of Compromise ("IoCs") and allows the operator to spin up complex profiles with minimal effort. This was done by extensively reviewing [Articles](https://www.cobaltstrike.com/help-malleable-c2) as well as [Patch Notes](https://www.cobaltstrike.com/releasenotes.txt) to identify key functions and modifiable features. SourcePoint was designed with the intent of addressing the issue of how to make our C2 activity harder to detect, focusing on moving away from malicious IoCs to suspicious ones. The goal here is that it is harder to detect our C2 if our IoCs are not malicious in-nature and require additional research to discover the suspicious nature. SourcePoint contains numerous different configurable options to choose from to modify your profile (in most cases if left blank SourcePoint will randomly choose them for you). The generated profiles modify all aspects of your C2. The goal of this project is to not only aid in circumventing detection-based controls but also help blend C2 traffic and activity into the environment, making said activity hard to detect. 
 
 
-<p align="center"> <img src=Screenshots/C2int_p1.png width="900" height="710" border="2px solid #555">
-<p align="center"> <img src=Screenshots/C2int_p2.png border="2px solid #555">
-
 ```
-go install github.com/Tylous/SourcePoint
+go install https://github.com/waffl3ss/SourcePoint
 ```
 
 ## Installation
@@ -254,22 +251,16 @@ The last option (8) is designed to input a custom profile. This option is design
 
 To do so, use the following options `-Customuri` and `-ProfilePath` along with `-Profile 8`. To use a different URI base for GET and POST, `-CustomuriGET` and  `-CustomuriPOST` should be used in place of `-Customuri`. While developing a profile, it’s highly recommended to use the native ./c2lint to verify everything is working. 
 
-## Sample Example 
-By combining these options into one profile you can create a highly effective beacon that can circumvent preventive and detective controls. While this remains an evolving cat-and-mouse game, combining the right options against a specific security stack can be quite effective. 
-
-<p align="center"> <img src=Screenshots/MDE_Example.png border="2px solid #555">
-
-
 ## Sample Yaml Configs
 
 ```
 Stage: "False"
 Host: "acme-email.com"
-Keystore: "acme-email.com.store"
-Password: "Password"
-Metadata: "netbios"
+Keystore:
+Password:
+Metadata: "base64url"
 Injector: "VirtualAllocEx"
-Outfile: "acme.profile"
+Outfile: "test.profile"
 PE_Clone: 20
 Profile: 4
 Allocation: 5312
@@ -277,17 +268,17 @@ Jitter: 30
 Debug: true
 Sleep: 35
 Uri: 3
-Useragent:  "Mac"
+Useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
 Post-EX Processname: 11
 Datajitter: 40
 Keylogger: "SetWindowsHookEx"
 Customuri: 
 CDN:
 CDN_Value: 
-ProfilePath: 
+ProfilePath:
 Syscall_method:
-Httplib:
-ThreadSpoof: true
+Httplib: 
+ThreadSpoof: True
 Customuri: 
 CustomuriGET: 
 CustomuriPOST:
@@ -295,20 +286,18 @@ Forwarder: False
 TasksMaxSize: 
 TasksProxyMaxSize:
 TasksDnsProxyMaxSize: 
+EafBypass: True
+RdllUseSyscalls: True
+CopyPEHeader: True
+RdllLoader: "PrependLoader"
+TransformObfuscate: "lznt1,xor \"32\""
+SmartInject: False
+BeaconGate: "All"
+SleepMask: False
 ```
 
 
 
 ## SSL Certificate
 
-Profiles mode 1-4 can be used without a validate SSL, SourcePoint will generate a self-signed certificate related to the profile type. However, valid SSL certificates are extremely important the success of any type of C2. For many reasons but obviously no certificate means the traffic is going to be unencrypted (i.e. HTTP WHICH SHOULD NEVER BE USED) but using a self-signed cert comes with its obvious limitations. There are many ways to obtain a valid SSL certificate to make a keystore my go to way is using a modified version of [HTTPsC2DoneRight.sh](https://github.com/killswitch-GUI/CobaltStrike-ToolKit/blob/master/HTTPsC2DoneRight.sh), created by [Cham423](https://github.com/cham423/cs-tools). 
-
-
-## DNS
-
-Currently DNS customization not offered directly through SourcePoint. To still allow dns-based beacons there is a commented out section for dns-beacon in every generated profile.
-
-
-## To Do List
-- [ ] Add More Profiles
-- [ ] DNS Staging
+Profiles mode 1-4 can be used without a validate SSL, SourcePoint will generate a self-signed certificate related to the profile type. However, valid SSL certificates are extremely important the success of any type of C2. For many reasons but obviously no certificate means the traffic is going to be unencrypted (i.e. HTTP WHICH SHOULD NEVER BE USED) but using a self-signed cert comes with its obvious limitations. Certbot/LetsEncrypt and converting to a .store is sufficient.
