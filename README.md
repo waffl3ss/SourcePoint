@@ -7,15 +7,15 @@ SourcePoint is a polymorphic C2 profile generator for Cobalt Strike C2s. SourceP
 Errors are bound to happen, I attempted to handle as many as I could find within this Fork from the original code. 
 
 
-```
-go install https://github.com/waffl3ss/SourcePoint
-```
-
 ## Installation
 ```
 $go get gopkg.in/yaml.v2
 
 $go build SourcePoint.go
+```
+OR
+```
+go install https://github.com/waffl3ss/SourcePoint
 ```
 
 ## Usage
