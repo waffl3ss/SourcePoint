@@ -9,9 +9,9 @@ Errors are bound to happen, I attempted to handle as many as I could find within
 
 ## Installation
 ```
-$go get gopkg.in/yaml.v2
+go get gopkg.in/yaml.v2
 
-$go build SourcePoint.go
+go build SourcePoint.go
 ```
 OR
 ```
