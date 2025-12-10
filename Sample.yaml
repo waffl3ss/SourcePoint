@@ -1,0 +1,41 @@
+Stage: "False"
+Host: "acme-email.com"
+Keystore:
+Password:
+Metadata: "base64url"
+Injector: "VirtualAllocEx"
+Outfile: "test.profile"
+PE_Clone: 20
+Profile: 4
+Allocation: 5312
+Jitter: 30
+Debug: true
+Sleep: 35
+Uri: 3
+Useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Post-EX Processname: 11
+Datajitter: 40
+Keylogger: "SetWindowsHookEx"
+Customuri: 
+CDN:
+CDN_Value: 
+ProfilePath:
+Syscall_method:
+Httplib: winhttp
+ThreadSpoof: True
+Customuri: 
+CustomuriGET: 
+CustomuriPOST:
+Forwarder: False
+TasksMaxSize: 
+TasksProxyMaxSize:
+TasksDnsProxyMaxSize: 
+EafBypass: True
+RdllUseSyscalls: True
+CopyPEHeader: True
+RdllLoader: "PrependLoader"
+TransformObfuscate: "lznt1,xor \"32\""
+SmartInject: False
+BeaconGate: "All"
+SleepMask: False
+
