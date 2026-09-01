@@ -150,7 +150,7 @@ func GenerateURIValues(numb int, profile_type int, Post bool, customuri string) 
 	for ii := 1; ii <= numb; ii++ {
 		rand.Seed(time.Now().UnixNano())
 		if profile_type == 1 {
-			num = rand.Intn(30-14) + 14
+			num = rand.Intn(26-14) + 14
 		} else {
 			num = rand.Intn(30-14) + 20
 		}

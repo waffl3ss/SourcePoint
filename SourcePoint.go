@@ -47,10 +47,14 @@ type FlagOptions struct {
 	eaf_bypass               bool
 	rdll_use_syscalls        bool
 	copy_pe_header           bool
-	rdll_loader              string
 	transform_obfuscate      string
 	smartinject              bool
 	sleep_mask               bool
+	rdll_use_driploading     bool
+	rdll_dripload_delay      string
+	checkin_delay            string
+	inject_use_driploading   bool
+	inject_dripload_delay    string
 }
 
 type conf struct {
@@ -65,7 +69,7 @@ type conf struct {
 	Profile              string `yaml:"Profile"`
 	Post_EX_Process_Name string `yaml:"Post-EX Processname"`
 	ProfilePath          string `yaml:"ProfilePath"`
-	Allocation           string `yaml:"allocation"`
+	Allocation           string `yaml:"Allocation"`
 	Jitter               string `yaml:"Jitter"`
 	Debug                bool   `yaml:"Debug"`
 	Sleep                string `yaml:"Sleep"`
@@ -89,10 +93,14 @@ type conf struct {
 	EafBypass            bool   `yaml:"EafBypass"`
 	RdllUseSyscalls      bool   `yaml:"RdllUseSyscalls"`
 	Copy_PE_Header       bool   `yaml:"CopyPEHeader"`
-	RdllLoader           string `yaml:"RdllLoader"`
 	TransformObfuscate   string `yaml:"TransformObfuscate"`
 	SmartInject          bool   `yaml:"SmartInject"`
 	SleepMask            bool   `yaml:"SleepMask"`
+	RdllUseDriploading   bool   `yaml:"RdllUseDriploading"`
+	RdllDriploadDelay    string `yaml:"RdllDriploadDelay"`
+	CheckinDelay         string `yaml:"CheckinDelay"`
+	InjectUseDriploading bool   `yaml:"InjectUseDriploading"`
+	InjectDriploadDelay  string `yaml:"InjectDriploadDelay"`
 }
 
 func (c *conf) getConf(yamlfile string) *conf {
@@ -117,6 +125,7 @@ func options() *FlagOptions {
 [*] Win10Chrome
 [*] Win10Edge
 [*] Win10IE
+[*] Win10Firefox
 [*] Win10
 [*] Win6.3
 [*] Linux
@@ -218,17 +227,21 @@ func options() *FlagOptions {
 	eaf_bypass := flag.Bool("EafBypass", false, "Enable EAF Bypass")
 	rdll_use_syscalls := flag.Bool("RdllUseSyscalls", false, "Use Syscalls for Rdll")
 	copy_pe_header := flag.Bool("CopyPEHeader", false, "Copy PE Header")
-	rdll_loader := flag.String("RdllLoader", "PrependLoader", "Rdll Loader Options PrependLoader or StompLoader (Older method)")
 	transform_obfuscate := flag.String("TransformObfuscate", "", `Transform obfuscate options (comma-separated list):
 [*] lznt1
 [*] rc4 "64"
 [*] xor "32"
 [*] base64
 Example: "lznt1,rc4 \"64\",xor \"32\",base64"`)
-	smartinject := flag.Bool("SmartInject", false, "Enable Smart Inject")
+	smartinject := flag.Bool("SmartInject", false, "Enable Smart Inject (post-ex)")
 	sleep_mask := flag.Bool("SleepMask", true, "Enable Sleep Mask")
+	rdll_use_driploading := flag.Bool("RdllUseDriploading", false, "Enable drip-loading for RDLL (allocates many small memory chunks instead of one large block)")
+	rdll_dripload_delay := flag.String("RdllDriploadDelay", "", "Delay in milliseconds between drip-load chunks for RDLL")
+	checkin_delay := flag.String("CheckinDelay", "", "Delay in milliseconds before Beacon's initial check-in")
+	inject_use_driploading := flag.Bool("InjectUseDriploading", false, "Enable drip-loading for process injection")
+	inject_dripload_delay := flag.String("InjectDriploadDelay", "", "Delay in milliseconds between drip-load chunks for process injection")
 	flag.Parse()
-	return &FlagOptions{stage: *stage, sleeptime: *sleeptime, jitter: *jitter, useragent: *useragent, uri: *uri, customuri: *customuri, customuriGET: *customuriGET, customuriPOST: *customuriPOST, beacon_PE: *beacon_PE, processinject_min_alloc: *processinject_min_alloc, Post_EX_Process_Name: *Post_EX_Process_Name, metadata: *metadata, injector: *injector, Host: *Host, Profile: *Profile, ProfilePath: *ProfilePath, outFile: *outFile, custom_cert: *custom_cert, cert_password: *cert_password, CDN: *CDN, CDN_Value: *CDN_Value, Yaml: *Yaml, Datajitter: *Datajitter, Keylogger: *Keylogger, Forwarder: *Forwarder, tasks_max_size: *tasks_max_size, tasks_proxy_max_size: *tasks_proxy_max_size, tasks_dns_proxy_max_size: *tasks_dns_proxy_max_size, syscall_method: *syscall_method, httplib: *httplib, threadspoof: *threadspoof, beacongate: *beacongate, eaf_bypass: *eaf_bypass, rdll_use_syscalls: *rdll_use_syscalls, copy_pe_header: *copy_pe_header, rdll_loader: *rdll_loader, transform_obfuscate: *transform_obfuscate, smartinject: *smartinject, sleep_mask: *sleep_mask}
+	return &FlagOptions{stage: *stage, sleeptime: *sleeptime, jitter: *jitter, useragent: *useragent, uri: *uri, customuri: *customuri, customuriGET: *customuriGET, customuriPOST: *customuriPOST, beacon_PE: *beacon_PE, processinject_min_alloc: *processinject_min_alloc, Post_EX_Process_Name: *Post_EX_Process_Name, metadata: *metadata, injector: *injector, Host: *Host, Profile: *Profile, ProfilePath: *ProfilePath, outFile: *outFile, custom_cert: *custom_cert, cert_password: *cert_password, CDN: *CDN, CDN_Value: *CDN_Value, Yaml: *Yaml, Datajitter: *Datajitter, Keylogger: *Keylogger, Forwarder: *Forwarder, tasks_max_size: *tasks_max_size, tasks_proxy_max_size: *tasks_proxy_max_size, tasks_dns_proxy_max_size: *tasks_dns_proxy_max_size, syscall_method: *syscall_method, httplib: *httplib, threadspoof: *threadspoof, beacongate: *beacongate, eaf_bypass: *eaf_bypass, rdll_use_syscalls: *rdll_use_syscalls, copy_pe_header: *copy_pe_header, transform_obfuscate: *transform_obfuscate, smartinject: *smartinject, sleep_mask: *sleep_mask, rdll_use_driploading: *rdll_use_driploading, rdll_dripload_delay: *rdll_dripload_delay, checkin_delay: *checkin_delay, inject_use_driploading: *inject_use_driploading, inject_dripload_delay: *inject_dripload_delay}
 
 }
 
@@ -239,7 +252,7 @@ func main() {
 	  \__ \/ __ \/ / / / ___/ ___/ _ \/ /_/ / __ \/ / __ \/ __/
 	 ___/ / /_/ / /_/ / /  / /__/  __/ ____/ /_/ / / / / / /_  
 	/____/\____/\__,_/_/   \___/\___/_/    \____/_/_/ /_/\__/  
-  							(@Tyl0us)
+  	(Original: @Tyl0us)       v2.0       (Updated: @waffl3ss)
 															 `)
 
 	opt := options()
@@ -263,6 +276,7 @@ func main() {
 		opt.customuriGET = c.CustomuriGET
 		opt.customuriPOST = c.CustomuriPOST
 		opt.CDN = c.CDN
+		opt.CDN_Value = c.CDN_Value
 		opt.useragent = c.Useragent
 		opt.ProfilePath = c.ProfilePath
 		opt.injector = c.Injector
@@ -279,10 +293,14 @@ func main() {
 		opt.eaf_bypass = c.EafBypass
 		opt.rdll_use_syscalls = c.RdllUseSyscalls
 		opt.copy_pe_header = c.Copy_PE_Header
-		opt.rdll_loader = c.RdllLoader
 		opt.transform_obfuscate = c.TransformObfuscate
 		opt.smartinject = c.SmartInject
 		opt.sleep_mask = c.SleepMask
+		opt.rdll_use_driploading = c.RdllUseDriploading
+		opt.rdll_dripload_delay = c.RdllDriploadDelay
+		opt.checkin_delay = c.CheckinDelay
+		opt.inject_use_driploading = c.InjectUseDriploading
+		opt.inject_dripload_delay = c.InjectDriploadDelay
 	}
 
 	if opt.outFile == "" {
@@ -297,6 +315,5 @@ func main() {
 	if (opt.customuriGET != "" && opt.customuriPOST == "") || (opt.customuriGET == "" && opt.customuriPOST != "") {
 		log.Fatal("Error: When using CustomuriGET/CustomuriPOST, both must be sepecified")
 	}
-	fmt.Println(c.TasksMaxSize)
-	Loader.GenerateOptions(opt.stage, opt.sleeptime, opt.jitter, opt.useragent, opt.uri, opt.customuri, opt.customuriGET, opt.customuriPOST, opt.beacon_PE, opt.processinject_min_alloc, opt.Post_EX_Process_Name, opt.metadata, opt.injector, opt.Host, opt.Profile, opt.ProfilePath, opt.outFile, opt.custom_cert, opt.cert_password, opt.CDN, opt.CDN_Value, opt.Datajitter, opt.Keylogger, opt.Forwarder, opt.tasks_max_size, opt.tasks_proxy_max_size, opt.tasks_dns_proxy_max_size, opt.syscall_method, opt.httplib, opt.threadspoof, opt.beacongate, opt.eaf_bypass, opt.rdll_use_syscalls, opt.copy_pe_header, opt.rdll_loader, opt.transform_obfuscate, opt.smartinject, opt.sleep_mask)
+	Loader.GenerateOptions(opt.stage, opt.sleeptime, opt.jitter, opt.useragent, opt.uri, opt.customuri, opt.customuriGET, opt.customuriPOST, opt.beacon_PE, opt.processinject_min_alloc, opt.Post_EX_Process_Name, opt.metadata, opt.injector, opt.Host, opt.Profile, opt.ProfilePath, opt.outFile, opt.custom_cert, opt.cert_password, opt.CDN, opt.CDN_Value, opt.Datajitter, opt.Keylogger, opt.Forwarder, opt.tasks_max_size, opt.tasks_proxy_max_size, opt.tasks_dns_proxy_max_size, opt.syscall_method, opt.httplib, opt.threadspoof, opt.beacongate, opt.eaf_bypass, opt.rdll_use_syscalls, opt.copy_pe_header, opt.transform_obfuscate, opt.smartinject, opt.sleep_mask, opt.rdll_use_driploading, opt.rdll_dripload_delay, opt.checkin_delay, opt.inject_use_driploading, opt.inject_dripload_delay)
 }

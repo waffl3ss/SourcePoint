@@ -2,7 +2,7 @@
 <p align="center"> <img src=Screenshots/logo.png  border="2px solid #555">
 
 # SourcePoint
-SourcePoint is a polymorphic C2 profile generator for Cobalt Strike C2s. SourcePoint allows unique C2 profiles to be generated on the fly that helps reduce our Indicators of Compromise ("IoCs") and allows the operator to spin up complex profiles with minimal effort. SourcePoint was designed with the intent of addressing the issue of how to make our C2 activity harder to detect, focusing on moving away from malicious IoCs to suspicious ones. The goal here is that it is harder to detect our C2 if our IoCs are not malicious in-nature and require additional research to discover the suspicious nature. SourcePoint contains numerous different configurable options to choose from to modify your profile (in most cases if left blank SourcePoint will randomly choose them for you). The generated profiles modify all aspects of your C2. The goal of this project is to not only aid in circumventing detection-based controls but also help blend C2 traffic and activity into the environment, making said activity hard to detect. 
+SourcePoint is a polymorphic C2 profile generator for Cobalt Strike C2s, updated for **Cobalt Strike 4.13**. SourcePoint allows unique C2 profiles to be generated on the fly that helps reduce our Indicators of Compromise ("IoCs") and allows the operator to spin up complex profiles with minimal effort. SourcePoint was designed with the intent of addressing the issue of how to make our C2 activity harder to detect, focusing on moving away from malicious IoCs to suspicious ones. The goal here is that it is harder to detect our C2 if our IoCs are not malicious in-nature and require additional research to discover the suspicious nature. SourcePoint contains numerous different configurable options to choose from to modify your profile (in most cases if left blank SourcePoint will randomly choose them for you). The generated profiles modify all aspects of your C2. The goal of this project is to not only aid in circumventing detection-based controls but also help blend C2 traffic and activity into the environment, making said activity hard to detect. 
 
 Errors are bound to happen, I attempted to handle as many as I could find within this Fork from the original code. 
 
@@ -31,7 +31,7 @@ go install https://github.com/waffl3ss/SourcePoint
   							(@Tyl0us)
 
                                                                                                                         
-Usage of ./SourcePoint:
+Usage of ./sourcepoint:
   -Allocation string
         Minimum amount of memory to request for injected content (must be higher than 4096)
   -BeaconGate string
@@ -40,6 +40,10 @@ Usage of ./SourcePoint:
         CDN cookie name (typically used for AzureEdge profiles)
   -CDN-Value string
         CDN cookie value (typically used for AzureEdge profiles)
+  -CheckinDelay string
+        Delay in milliseconds before Beacon's initial check-in
+  -CopyPEHeader
+        Copy PE Header
   -Customuri string
         The base URI for custom HTTP GET/POST profile - Cannot be used with CustomuriGET or CustomuriPOST
   -CustomuriGET string
@@ -48,6 +52,8 @@ Usage of ./SourcePoint:
         The base URI for custom HTTP POST profile - Must be used with CustomuriGET
   -Datajitter string
         Appends a value to HTTP-Get and HTTP-Post server output (default "50")
+  -EafBypass
+        Enable EAF Bypass
   -Forwarder
         Enabled the X-forwarded-For header (Good for when your C2 is behind a redirector)
   -Host string
@@ -55,7 +61,11 @@ Usage of ./SourcePoint:
   -Httplib string
         Select the default HTTP Beacon library:
         [*] wininet
-        [*] winhttp' (default "winhttp")
+        [*] winhttp (default "winhttp")
+  -InjectDriploadDelay string
+        Delay in milliseconds between drip-load chunks for process injection
+  -InjectUseDriploading
+        Enable drip-loading for process injection
   -Injector string
         Select the preferred method to allocate memory in the remote process:
         [*] VirtualAllocEx (Great for cross architecture i.e x86 -> x64 and x64->x86)
@@ -139,12 +149,22 @@ Usage of ./SourcePoint:
         [8] Custom (Used with ProfilePath)
   -ProfilePath string
         Path of custom HTTP GET/POST profile...
+  -RdllDriploadDelay string
+        Delay in milliseconds between drip-load chunks for RDLL
+  -RdllUseDriploading
+        Enable drip-loading for RDLL (allocates many small memory chunks instead of one large block)
+  -RdllUseSyscalls
+        Use Syscalls for Rdll
   -Sleep string
         Initial beacon sleep time
+  -SleepMask
+        Enable Sleep Mask (default true)
+  -SmartInject
+        Enable Smart Inject (post-ex)
   -Stage string
         Disable host staging (Default: False) (default "false")
   -Syscall string
-        Defines the ability to use direct/indirect system calls instead of the standard Windows API functions calls:
+        Defines the ability to use direct/indirect system calls:
         [*] None
         [*] Direct
         [*] Indirect (default "None")
@@ -155,7 +175,13 @@ Usage of ./SourcePoint:
   -TasksProxyMaxSize string
         The maximum size (in bytes) of proxy data to transfer via the communication channel at a check in
   -ThreadSpoof
-        Sets post-ex DLLs to spawn threads with a spoofed start address. These are generated randomly (default true)
+        Sets post-ex DLLs to spawn threads with a spoofed start address (default true)
+  -TransformObfuscate string
+        Transform obfuscate options (comma-separated list):
+        [*] lznt1
+        [*] rc4 "64"
+        [*] xor "32"
+        [*] base64
   -Uri string
         The number URIs a profile for beacons to choose from
   -Useragent string
@@ -163,6 +189,7 @@ Usage of ./SourcePoint:
         [*] Win10Chrome
         [*] Win10Edge
         [*] Win10IE
+        [*] Win10Firefox
         [*] Win10
         [*] Win6.3
         [*] Linux
@@ -174,43 +201,48 @@ Usage of ./SourcePoint:
 
 ## Important
 
-SourcePoint primarily automates the build process of a profile. It’s very important to know all the features modified in these profiles. Knowing these features can really help increase your success. 
+SourcePoint primarily automates the build process of a profile. It's very important to know all the features modified in these profiles. Knowing these features can really help increase your success. 
 
 ## Options 
 
 While there are a lot of settings and features described in the help function of SourcePoint, there are numerous important features baked into each profile that are important to be familiar with. These features are:
 
 ### Global Options
-This part of your profile modifies how the beacon operators. Some of the features used to modify the behaviour are:
+This part of your profile modifies how the beacon operates. Some of the features used to modify the behaviour are:
 
 * Host Stage - Allows the team server to host staged shellcode for HTTP, HTTPS, DNS. If this is enabled, anyone sending a GET request with a specific value such has `/9ZXq` can pull the shellcode as well
 * Sleep - The length of time that a beacon calls back home
 * Jitter - Appends a percentage to the beacon call home time
 * Useragent - The useragent string used when communicating HTTP and HTTPS traffic. Using the appropriate useragent string can help blend into the environment 
 * Data Jitter - Adds a random-length string to all GET and POST requests to ensure incoming requests are not the same length
+* Checkin Delay - Delays Beacon's initial check-in by the specified number of milliseconds, breaking event-correlation detection heuristics on reflective loading
 * SMB Frame Header - Adds a header value to the SMB beacon messages
 * Pipename - Sets the name of the SMB pipe the beacons is going to use for communication
 * Pipename Stager - Sets the name of the SMB stager for the beacons
 * TCP Frame Header - Adds a header value to the TCP beacon messages
 * SSH Banner - The SSH banner used
 * SSH Pipename - The name used for the SSH banner
-* HttpLib - The library attribute allows the user to specify the default library used by the generated beacons used by the profile. The value can be "wininet" or "winhttp"
+* HttpLib - The library attribute allows the user to specify the default library used by the generated beacons. The value can be "wininet" or "winhttp"
 
 ### Stage
-This part of your profile controls how beacon is loaded into memory and edit the content of the beacon DLL. Some of the features used to modify the behaviour are:
+This part of your profile controls how beacon is loaded into memory and edits the content of the beacon DLL. Some of the features used to modify the behaviour are:
 
 * Obfuscate - Obfuscates the import table of the reflective DLL
-* Stomppe - Asks the payload to stomp MZ, PE and, e_lfanen values after loading
-* Clean up - Tells the beacon to free up memory assoicated with the refelctive DLL that initalized it
+* Stomppe - Asks the payload to stomp MZ, PE and, e_lfanew values after loading
+* Clean up - Tells the beacon to free up memory associated with the reflective DLL that initialized it
 * UseRWX - Ensures shellcode does not use Read, Write Execute permissions
 * Magic_MZ - Overrides the first bytes (MZ header included) of Beacon's Reflective DLL (currently only for x64)
 * Magic_PE - Overrides the PE character marker used by Beacon's Reflective Loader with another value
-* Syscall - Defines the ability to use system calls instead of the standard Windows API functions
-* Smart Inject - Uses embedded function pointer hints to bootstrap the beacon agent without walking kernel32 EAT
-* Sleep Mask - TCP and SMB beacons will obfuscate themselves at rest while they wait for the connection to be established
+* Syscall - Defines the ability to use direct/indirect system calls instead of the standard Windows API functions
+* BeaconGate - Controls which API calls are routed through the beacon gate for evasion (All, Comms, Core, Cleanup, or specific APIs)
+* Sleep Mask - Obfuscates beacon in memory while sleeping. TCP and SMB beacons will obfuscate themselves at rest while they wait for the connection to be established
+* EAF Bypass - Enables Export Address Filtering bypass
+* RDLL Use Syscalls - Uses indirect system calls when loading the payload
+* Copy PE Header - Copies the PE header from the cloned DLL into beacon's memory
+* RDLL Drip Loading - Allocates many small memory chunks instead of one large block, breaking event-correlation detection heuristics. Configurable delay between chunks via RdllDriploadDelay
 * PE Header - Changes the characteristics of your beacon Reflective DLL to look like something else in memory
+* Transform Obfuscate - Transforms beacon's Reflective DLL stage content using compression and encoding (lznt1, xor, rc4, base64)
 * Transformation - Transform beacon's Reflective DLL stage by removing or adding strings to the .rdata 
-
 
 ### Process-Inject
 This part of your profile controls how the beacon shapes injected content and controls process injection behavior. Some of the features used to modify the behaviour are:
@@ -219,23 +251,24 @@ This part of your profile controls how the beacon shapes injected content and co
 * Minimum Allocation - Minimum amount of memory to request for injected content
 * Userwx - Ensures shellcode does not use Read, Write Execute permissions (The alternative is RW)
 * Startrwx - Use Read, Write Execute as initial permissions for injected content (The alternative is RW)
+* Drip Loading - Enables drip-loading for process injection, allocating memory in small chunks. Configurable delay between chunks via InjectDriploadDelay
 * Transformer - Adds a block of padding content injected by the beacon
 * Execute - This section determines how to execute the injected code
 
-### Post-Exec
+### Post-Ex
 This part of your profile controls how the beacon handles post-exploitation modules and commands. Some of the features used to modify the behaviour are:
 
 * Spawnto - Determines the default temporary process beacon will spawn for its post-exploitation command and options
 * Obfuscate - Obfuscates the import table of the reflective DLL
-* Smart Inject - Pass key function pointers from beacon to its child jobs
+* Smart Inject - Pass key function pointers from beacon to its child jobs (moved from stage to post-ex in CS 4.13)
 * AMSI disable - Disable AMSI for powerpick, execute-assembly, and psinject (Certain EDRs can detect this best avoid using these tools)
-* Keylogger - Determines how the keystroker logging API use to capture keystrokes
-* Cleanup - Cleanups the post-ex User Defined Reflective DLL ("UDRL") memory when the post-ex DLL is loaded
+* Keylogger - Determines how the keystroke logging API is used to capture keystrokes
+* Cleanup - Cleans up the post-ex User Defined Reflective DLL ("UDRL") memory when the post-ex DLL is loaded
 * Threadhint - Allows post-ex DLLs to spawn threads with a spoofed start address
 
 
 ### Profiles
-Currently SourcePoint provides you with 7 baked in options for HTTP/HTTPS traffic profiles, based on existing profiles. Of these 6, 4 of them are influenced by and based on:
+Currently SourcePoint provides you with 7 baked in options for HTTP/HTTPS traffic profiles, based on existing profiles. Of these 7, 4 of them are influenced by and based on:
 * Microsoft Window's Update Communication
 * Slack's Message Communication
 * Gotomeeting's Active Meeting Communication 
@@ -245,17 +278,28 @@ Currently SourcePoint provides you with 7 baked in options for HTTP/HTTPS traffi
 * Cloudfront.net
 * AzureEdge.net
 
-The last option (8) is designed to input a custom profile. This option is designed to allow an operator to utilize a completely custom traffic profile. There are many cases where a completely unique traffic profile will yield high success rather than one of these. This also allows operators to still utilize SourcePoint's malleability features with their go-to or favorite traffic profile. As this allows for unique profiles it’s important to ensure you tweak and adjust the profile for SourcePoint to work. At a minimum:
+The last option (8) is designed to input a custom profile. This option is designed to allow an operator to utilize a completely custom traffic profile. There are many cases where a completely unique traffic profile will yield high success rather than one of these. This also allows operators to still utilize SourcePoint's malleability features with their go-to or favorite traffic profile. As this allows for unique profiles it's important to ensure you tweak and adjust the profile for SourcePoint to work. At a minimum:
 * Replace - `header "Host" "acme.com";` with `header "Host" "{{.Variables.Host}}";`
 * Replace - `/pathtolegitpage/` under the GET field with `{{.Variables.HTTP_GET_URI}}`
 * Replace - `/pathtolegitpage/` under the POST field with `{{.Variables.HTTP_POST_URI}}`
 
 
-To do so, use the following options `-Customuri` and `-ProfilePath` along with `-Profile 8`. To use a different URI base for GET and POST, `-CustomuriGET` and  `-CustomuriPOST` should be used in place of `-Customuri`. While developing a profile, it’s highly recommended to use the native ./c2lint to verify everything is working. 
+To do so, use the following options `-Customuri` and `-ProfilePath` along with `-Profile 8`. To use a different URI base for GET and POST, `-CustomuriGET` and  `-CustomuriPOST` should be used in place of `-Customuri`. While developing a profile, it's highly recommended to use the native ./c2lint to verify everything is working. 
 
-## Sample Yaml Configs
+### Redirector Rules
 
+When a profile is generated, SourcePoint automatically outputs Apache mod_rewrite `RewriteCond` rules matching the selected profile's URI patterns. These are ready to use in an Apache or Nginx redirector configuration to forward only matching beacon traffic to the team server and redirect everything else to a legitimate site.
+
+Example output for the Slack profile:
 ```
+[*] For redirector (if in use):
+	# Profile: Slack
+	RewriteCond %{REQUEST_URI} ^/messages/[A-Za-z0-9-]{5,} [NC]
+```
+
+## Sample Yaml Config
+
+```yaml
 Stage: "False"
 Host: "acme-email.com"
 Keystore:
@@ -270,36 +314,71 @@ Jitter: 30
 Debug: true
 Sleep: 35
 Uri: 3
-Useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Useragent: "Win10Chrome"
 Post-EX Processname: 11
 Datajitter: 40
 Keylogger: "SetWindowsHookEx"
-Customuri: 
+Customuri:
+CustomuriGET:
+CustomuriPOST:
 CDN:
-CDN_Value: 
+CDN_Value:
 ProfilePath:
 Syscall_method:
-Httplib: 
+Httplib: winhttp
 ThreadSpoof: True
-Customuri: 
-CustomuriGET: 
-CustomuriPOST:
 Forwarder: False
-TasksMaxSize: 
+TasksMaxSize:
 TasksProxyMaxSize:
-TasksDnsProxyMaxSize: 
+TasksDnsProxyMaxSize:
 EafBypass: True
 RdllUseSyscalls: True
 CopyPEHeader: True
-RdllLoader: "PrependLoader"
 TransformObfuscate: "lznt1,xor \"32\""
-SmartInject: False
+SmartInject: True
 BeaconGate: "All"
-SleepMask: False
+SleepMask: True
+RdllUseDriploading: False
+RdllDriploadDelay:
+CheckinDelay:
+InjectUseDriploading: False
+InjectDriploadDelay:
 ```
 
+## CS 4.13 Compatibility Notes
 
+This fork has been updated for Cobalt Strike 4.13 compatibility. The following changes were made:
+
+**Removed options (no longer valid in CS 4.13):**
+* `RdllLoader` - Removed. The StompLoader architecture was removed in CS 4.12; PrependLoader is now the only loader and is used by default.
+* `smartinject` in the stage block - Moved exclusively to the `post-ex` block (controlled via `-SmartInject` flag / `SmartInject` YAML key).
+* `set name` in PE cloning - Removed from the stage block. PE header cloning still works via checksum, compile_time, entry_point, image_size, and rich_header fields.
+
+**New options added:**
+* `CheckinDelay` - Delays Beacon's initial check-in to break detection heuristics on reflective loading.
+* `RdllUseDriploading` / `RdllDriploadDelay` - Enables drip-loading technique for the RDLL, allocating many small memory chunks instead of one large block.
+* `InjectUseDriploading` / `InjectDriploadDelay` - Enables drip-loading for process injection.
+
+**Bug fixes:**
+* Fixed `CDN_Value` not being wired from YAML config to profile generation.
+* Fixed off-by-one in random user agent selection that excluded the last Mac UA.
+* Fixed duplicate `compile_time` and `entry_point` fields in PE clone #5 (DIAGCPL.dll).
+* Removed debug print statement that leaked `TasksMaxSize` to stdout.
+* Added `Win10Firefox` as a user agent selection option.
+* Updated user agent strings with Chrome 136/137, Firefox 137/138, Edge 135-137, Safari 18.4 versions.
+* Fixed WindowsUpdate profile (1) `http-post` uri-append collision between `id` and `output` blocks.
+* Fixed WindowsUpdate profile (1) URI length exceeding 63-byte limit.
+* Fixed GoToMeeting profile (3) extra closing brace causing mismatched braces error.
+* Fixed GoToMeeting profile (3) duplicate `http-stager` URIs (x86/x64 now use different random values).
+* Fixed GoToMeeting profile (3) `Content-Type` header in `http-config` block (not allowed by c2lint).
+* Fixed PE clone `image_size` values for 11 entries that were too small for CS 4.13 beacon DLLs (x86 minimum 372736, x64 minimum 462848).
+* Added missing `image_size_x86`/`image_size_x64` fields to 4 PE clone entries that lacked them.
+* Fixed off-by-one in random selection for Post-EX process names (last entry `svchost.exe` was never picked).
+* Fixed off-by-one in random selection for SSH banners (only 4 of 8 banners were ever used).
+* Fixed off-by-one in random selection for pipe names (last entry never picked).
+* Fixed off-by-one in random selection for thread hints (last entry never picked).
+* Fixed off-by-one in random selection for Magic PE values (last entry never picked).
 
 ## SSL Certificate
 
-Profiles mode 1-4 can be used without a validate SSL, SourcePoint will generate a self-signed certificate related to the profile type. However, valid SSL certificates are extremely important the success of any type of C2. For many reasons but obviously no certificate means the traffic is going to be unencrypted (i.e. HTTP WHICH SHOULD NEVER BE USED) but using a self-signed cert comes with its obvious limitations. Certbot/LetsEncrypt and converting to a .store is sufficient.
+Profiles mode 1-4 can be used without a valid SSL, SourcePoint will generate a self-signed certificate related to the profile type. However, valid SSL certificates are extremely important the success of any type of C2. For many reasons but obviously no certificate means the traffic is going to be unencrypted (i.e. HTTP WHICH SHOULD NEVER BE USED) but using a self-signed cert comes with its obvious limitations. Certbot/LetsEncrypt and converting to a .store is sufficient.

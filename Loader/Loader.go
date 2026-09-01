@@ -38,10 +38,14 @@ type FlagOptions struct {
 	eaf_bypass               bool
 	rdll_use_syscalls        bool
 	copy_pe_header           bool
-	rdll_loader              string
 	transform_obfuscate      string
 	smartinject              bool
 	sleep_mask               bool
+	rdll_use_driploading     bool
+	rdll_dripload_delay      string
+	checkin_delay            string
+	inject_use_driploading   bool
+	inject_dripload_delay    string
 }
 
 type Beacon_Com struct {
@@ -75,7 +79,7 @@ type Beacon_SSL struct {
 var num_Profile int
 var Post bool
 
-func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, smartinject bool, sleep_mask bool) {
+func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, transform_obfuscate string, smartinject bool, sleep_mask bool, rdll_use_driploading bool, rdll_dripload_delay string, checkin_delay string, inject_use_driploading bool, inject_dripload_delay string) {
 	Beacon_Com := &Beacon_Com{}
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
 	Beacon_Stage_p2 := &Beacon_Stage_p2{}
@@ -88,18 +92,21 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 	var HostStageMessage string
 
 	fmt.Println("[*] Preparing Varibles...")
-	HostStageMessage, Beacon_Com.Variables = GenerateComunication(stage, sleeptime, jitter, useragent, datajitter, tasks_max_size, tasks_proxy_max_size, tasks_dns_proxy_max_size, httplib)
-	Beacon_PostEX.Variables = GeneratePostProcessName(Post_EX_Process_Name, Keylogger, ThreadSpoof)
+	HostStageMessage, Beacon_Com.Variables = GenerateComunication(stage, sleeptime, jitter, useragent, datajitter, tasks_max_size, tasks_proxy_max_size, tasks_dns_proxy_max_size, httplib, checkin_delay)
+	Beacon_PostEX.Variables = GeneratePostProcessName(Post_EX_Process_Name, Keylogger, ThreadSpoof, smartinject)
 	Beacon_GETPOST.Variables = GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customuriPOST, CDN, CDN_Value, Profile, Forwarder)
-	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, rdll_loader, transform_obfuscate, smartinject, sleep_mask)
-	Process_Inject.Variables = GenerateProcessInject(processinject_min_alloc, injector)
+	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, transform_obfuscate, sleep_mask, rdll_use_driploading, rdll_dripload_delay)
+	Process_Inject.Variables = GenerateProcessInject(processinject_min_alloc, injector, inject_use_driploading, inject_dripload_delay)
 	Beacon_GETPOST_Profile.Variables, Beacon_SSL.Variables = GenerateProfile(Profile, CDN, CDN_Value, cert_password, custom_cert, ProfilePath, Host)
 	fmt.Println("[*] Building Profile...")
 	Build(custom_cert, cert_password, outFile, Beacon_Com, Beacon_Stage_p1, Beacon_Stage_p2, Beacon_Stage_p3, Process_Inject, Beacon_PostEX, Beacon_GETPOST, Beacon_GETPOST_Profile, Beacon_SSL)
 	fmt.Println(HostStageMessage)
-	PE := strings.Split(Beacon_Stage_p2.Variables["pe"], `;`)
-	PE_Name := strings.Split(PE[len(PE)-3], `"`)
-	fmt.Println("[*] Beacon DLL Spoofed To: " + PE_Name[1])
+	PE_Num_Idx, _ := strconv.Atoi(beacon_PE)
+	if PE_Num_Idx == 0 {
+		fmt.Println("[*] Beacon DLL Spoofed To: (random PE clone)")
+	} else if PE_Num_Idx <= len(Struct.Peclone_names) {
+		fmt.Println("[*] Beacon DLL Spoofed To: " + Struct.Peclone_names[PE_Num_Idx-1])
+	}
 	PEX := strings.Split(Beacon_PostEX.Variables["Post_EX_Process_Name"], `sysnative\\`)
 	PEX_Name := PEX[1]
 	fmt.Println("[*] Post-Ex Process Name: " + PEX_Name[:(len(PEX_Name)-3)])
@@ -113,12 +120,54 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 		fmt.Println("[!] " + syscall_method + " syscall method selected")
 	}
 	Name, _ := strconv.Atoi(Profile)
-	fmt.Println("[*] Seleted Profile: " + Struct.Profile_Names[Name])
+	fmt.Println("[*] Selected Profile: " + Struct.Profile_Names[Name])
+	PrintRedirectorRules(Name, customuri, customuriGET, customuriPOST)
 	fmt.Println("[+] Profile Generated: " + outFile)
 	fmt.Println("[+] Happy Hacking")
 }
 
-func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, httplib string) (string, map[string]string) {
+func PrintRedirectorRules(profileNum int, customuri, customuriGET, customuriPOST string) {
+	fmt.Println("[*] For redirector (if in use):")
+	switch profileNum {
+	case 1:
+		fmt.Println("\t# Profile: WindowsUpdate")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/c/msdownload/update/others/2021/10/ [NC]")
+	case 2:
+		fmt.Println("\t# Profile: Slack")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/messages/[A-Za-z0-9-]{5,} [NC]")
+	case 3:
+		fmt.Println("\t# Profile: GoToMeeting")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/functionalStatus/[A-Za-z0-9-]{14,} [NC,OR]")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/rest/2/meetings [NC,OR]")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/Meeting/[A-Za-z0-9-]+/ [NC]")
+	case 4:
+		fmt.Println("\t# Profile: Outlook.Live")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/owa/[A-Za-z0-9-]{14,} [NC,OR]")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/rpc/[0-9]+ [NC]")
+	case 5:
+		fmt.Println("\t# Profile: Safebrowsing")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/safebrowsing/ [NC]")
+	case 6:
+		fmt.Println("\t# Profile: AzureEdge")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/chat/[A-Za-z0-9_-]+ [NC]")
+	case 7:
+		fmt.Println("\t# Profile: Field-Keyword")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/s/[A-Za-z0-9-]+/field-keywords/ [NC,OR]")
+		fmt.Println("\tRewriteCond %{REQUEST_URI} ^/n[A-Za-z0-9-]+/avp/amznussraps/ [NC]")
+	case 8:
+		fmt.Println("\t# Profile: Custom")
+		if customuriGET != "" && customuriPOST != "" {
+			fmt.Println("\tRewriteCond %{REQUEST_URI} ^" + customuriGET + " [NC,OR]")
+			fmt.Println("\tRewriteCond %{REQUEST_URI} ^" + customuriPOST + " [NC]")
+		} else if customuri != "" {
+			fmt.Println("\tRewriteCond %{REQUEST_URI} ^" + customuri + " [NC]")
+		} else {
+			fmt.Println("\t# Check your custom profile for URI patterns")
+		}
+	}
+}
+
+func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, httplib string, checkin_delay string) (string, map[string]string) {
 	Beacon_Com := &Beacon_Com{}
 	Beacon_Com.Variables = make(map[string]string)
 	var HostStageMessage string
@@ -162,51 +211,45 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 	} else {
 		Beacon_Com.Variables["tasks_dns_proxy_max_size"] = "71680"
 	}
-	SSH_Numb, _ := strconv.Atoi(Utils.GenerateNumer(0, 4))
+	SSH_Numb, _ := strconv.Atoi(Utils.GenerateNumer(0, 8))
 	Beacon_Com.Variables["SSH_Banner"] = Struct.SSH_Banner[SSH_Numb]
 
-	pipe_number, _ := strconv.Atoi(Utils.GenerateNumer(0, 7))
+	pipe_number, _ := strconv.Atoi(Utils.GenerateNumer(0, 8))
 	Beacon_Com.Variables["pipename"] = Struct.Pipename_list[pipe_number] + Utils.GenerateNumer(3000, 9000)
 	Beacon_Com.Variables["pipename_stager"] = Struct.Pipename_list[pipe_number] + Utils.GenerateNumer(1000, 9000)
 	Beacon_Com.Variables["SSH_pipename"] = Struct.Pipename_list[pipe_number]
 	if useragent != "" {
 		if useragent == "Win10Chrome" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 9))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 11))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
 		} else if useragent == "Win10Edge" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(9, 16))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(11, 19))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
 		} else if useragent == "Win10IE" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(16, 22))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(19, 25))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
-
 		} else if useragent == "Win10Firefox" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(22, 27))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(25, 32))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
-
 		} else if useragent == "Win10" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 27))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 32))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
-
 		} else if useragent == "Win6.3" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(27, 37))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(32, 42))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
-
 		} else if useragent == "Linux" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(37, 51))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(42, 56))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
-
 		} else if useragent == "Mac" {
-			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(51, 65))
+			num_agent, _ := strconv.Atoi(Utils.GenerateNumer(56, 70))
 			Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
 		} else {
 			Beacon_Com.Variables["useragent"] = useragent
 		}
 	}
 	if useragent == "" {
-		num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 64))
+		num_agent, _ := strconv.Atoi(Utils.GenerateNumer(0, 70))
 		Beacon_Com.Variables["useragent"] = Struct.Useragent_list[num_agent]
-
 	}
 
 	if httplib != "" {
@@ -215,10 +258,16 @@ func GenerateComunication(stage, sleeptime, jitter, useragent, datajitter string
 		Beacon_Com.Variables["httplib"] = "wininet"
 	}
 
+	if checkin_delay != "" && checkin_delay != "0" {
+		Beacon_Com.Variables["checkin_delay"] = "set checkin_delay \"" + checkin_delay + "\";"
+	} else {
+		Beacon_Com.Variables["checkin_delay"] = ""
+	}
+
 	return HostStageMessage, Beacon_Com.Variables
 }
 
-func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof bool) map[string]string {
+func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof bool, smartinject bool) map[string]string {
 	Beacon_PostEX := &Beacon_PostEX{}
 	Beacon_PostEX.Variables = make(map[string]string)
 	if Post_EX_Process_Name != "" {
@@ -226,7 +275,7 @@ func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof
 		Beacon_PostEX.Variables["Post_EX_Process_Name"] = Struct.Post_EX_Process_Name[(num_PSPN - 1)]
 	}
 	if Post_EX_Process_Name == "" {
-		num_Post_EX_Process_Name, _ := strconv.Atoi(Utils.GenerateNumer(0, 14))
+		num_Post_EX_Process_Name, _ := strconv.Atoi(Utils.GenerateNumer(0, 15))
 		Beacon_PostEX.Variables["Post_EX_Process_Name"] = Struct.Post_EX_Process_Name[num_Post_EX_Process_Name]
 	}
 	if Keylogger == "GetAsyncKeyState" || Keylogger == "SetWindowsHookEx" {
@@ -237,10 +286,16 @@ func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof
 	}
 
 	if ThreadSpoof == true {
-		threadhint_num, _ := strconv.Atoi(Utils.GenerateNumer(0, 8))
+		threadhint_num, _ := strconv.Atoi(Utils.GenerateNumer(0, 9))
 		Beacon_PostEX.Variables["thread_hint"] = "set thread_hint \"" + Struct.Thread_list[(threadhint_num)] + Utils.GenHex() + "\";"
 	} else {
 		Beacon_PostEX.Variables["thread_hint"] = ""
+	}
+
+	if smartinject {
+		Beacon_PostEX.Variables["smartinject"] = "true"
+	} else {
+		Beacon_PostEX.Variables["smartinject"] = "false"
 	}
 
 	return Beacon_PostEX.Variables
@@ -317,6 +372,7 @@ func GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customur
 	Beacon_GETPOST.Variables["Age"] = Utils.GenerateNumer(1222, 2500)
 
 	Beacon_GETPOST.Variables["UValue"] = Utils.GenerateValue(6, 15)
+	Beacon_GETPOST.Variables["UValue2"] = Utils.GenerateValue(6, 15)
 	Beacon_GETPOST.Variables["CSMValue"] = Utils.GenerateValue(6, 15)
 
 	//needs to be put stacic
@@ -329,7 +385,7 @@ func GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customur
 	return Beacon_GETPOST.Variables
 }
 
-func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, rdll_loader string, transform_obfuscate string, smartinject bool, sleep_mask bool) (map[string]string, map[string]string, string) {
+func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, transform_obfuscate string, sleep_mask bool, rdll_use_driploading bool, rdll_dripload_delay string) (map[string]string, map[string]string, string) {
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
 	Beacon_Stage_p1.Variables = make(map[string]string)
 
@@ -348,13 +404,6 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	} else {
 		log.Fatal("Error: Please provide a valid Syscall Method")
 	}
-	if rdll_loader == "PrependLoader" {
-		Beacon_Stage_p1.Variables["rdll_loader"] = "PrependLoader"
-	} else if rdll_loader == "StompLoader" {
-		Beacon_Stage_p1.Variables["rdll_loader"] = "StompLoader"
-	} else {
-		log.Fatal("Error: Please provide a valid Rdll Loader option")
-	}
 	// Set default value for eaf_bypass
 	if eaf_bypass == true {
 		Beacon_Stage_p1.Variables["eaf_bypass"] = "true"
@@ -371,17 +420,12 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	} else {
 		Beacon_Stage_p1.Variables["copy_pe_header"] = "false"
 	}
-	if smartinject == true {
-		Beacon_Stage_p1.Variables["smartinject"] = "true"
-	} else {
-		Beacon_Stage_p1.Variables["smartinject"] = "false"
-	}
 	if sleep_mask == true {
 		Beacon_Stage_p1.Variables["sleep_mask"] = "true"
 	} else {
 		Beacon_Stage_p1.Variables["sleep_mask"] = "false"
 	}
-	gen_number, _ := strconv.Atoi(Utils.GenerateNumer(0, 6))
+	gen_number, _ := strconv.Atoi(Utils.GenerateNumer(0, 7))
 	Beacon_Stage_p1.Variables["magic_mz_x64"] = Struct.Magic_PE[gen_number]
 	Beacon_Stage_p1.Variables["magic_pe"] = strings.ToUpper(Utils.GenerateSingleValue(2))
 
@@ -407,6 +451,16 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 		Beacon_Stage_p1.Variables["transform_obfuscate"] = "transform-obfuscate {\n" + strings.Join(formattedMethods, "\n") + "\n}"
 	} else {
 		Beacon_Stage_p1.Variables["transform_obfuscate"] = ""
+	}
+
+	if rdll_use_driploading {
+		driploading := "set rdll_use_driploading \"true\";"
+		if rdll_dripload_delay != "" && rdll_dripload_delay != "0" {
+			driploading += "\n\tset rdll_dripload_delay \"" + rdll_dripload_delay + "\";"
+		}
+		Beacon_Stage_p1.Variables["rdll_driploading"] = driploading
+	} else {
+		Beacon_Stage_p1.Variables["rdll_driploading"] = ""
 	}
 
 	if beacon_PE == "" {
@@ -460,7 +514,7 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	return Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method
 }
 
-func GenerateProcessInject(processinject_min_alloc, injector string) map[string]string {
+func GenerateProcessInject(processinject_min_alloc, injector string, inject_use_driploading bool, inject_dripload_delay string) map[string]string {
 	Process_Inject := &Process_Inject{}
 	Process_Inject.Variables = make(map[string]string)
 	if processinject_min_alloc == "" {
@@ -484,6 +538,16 @@ func GenerateProcessInject(processinject_min_alloc, injector string) map[string]
 		Process_Inject.Variables["injector"] = injector
 	} else {
 		log.Fatal("Error: Please provide a valid Process Injector option")
+	}
+
+	if inject_use_driploading {
+		driploading := "set use_driploading \"true\";"
+		if inject_dripload_delay != "" && inject_dripload_delay != "0" {
+			driploading += "\n\tset dripload_delay \"" + inject_dripload_delay + "\";"
+		}
+		Process_Inject.Variables["inject_driploading"] = driploading
+	} else {
+		Process_Inject.Variables["inject_driploading"] = ""
 	}
 
 	return Process_Inject.Variables
