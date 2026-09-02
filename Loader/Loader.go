@@ -79,7 +79,7 @@ type Beacon_SSL struct {
 var num_Profile int
 var Post bool
 
-func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, transform_obfuscate string, smartinject bool, sleep_mask bool, rdll_use_driploading bool, rdll_dripload_delay string, checkin_delay string, inject_use_driploading bool, inject_dripload_delay string) {
+func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, customuriGET, customuriPOST, beacon_PE, processinject_min_alloc, Post_EX_Process_Name, metadata, injector, Host, Profile, ProfilePath, outFile, custom_cert, cert_password, CDN, CDN_Value, datajitter, Keylogger string, Forwarder bool, tasks_max_size string, tasks_proxy_max_size string, tasks_dns_proxy_max_size string, syscall_method string, httplib string, ThreadSpoof bool, beacongate string, eaf_bypass bool, rdll_use_syscalls bool, copy_pe_header bool, transform_obfuscate string, smartinject bool, sleep_mask bool, rdll_use_driploading bool, rdll_dripload_delay string, checkin_delay string, inject_use_driploading bool, inject_dripload_delay string, startrwx bool) {
 	Beacon_Com := &Beacon_Com{}
 	Beacon_Stage_p1 := &Beacon_Stage_p1{}
 	Beacon_Stage_p2 := &Beacon_Stage_p2{}
@@ -96,7 +96,7 @@ func GenerateOptions(stage, sleeptime, jitter, useragent, uri, customuri, custom
 	Beacon_PostEX.Variables = GeneratePostProcessName(Post_EX_Process_Name, Keylogger, ThreadSpoof, smartinject)
 	Beacon_GETPOST.Variables = GenerateHTTPVaribles(Host, metadata, uri, customuri, customuriGET, customuriPOST, CDN, CDN_Value, Profile, Forwarder)
 	Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method = GeneratePE(beacon_PE, syscall_method, beacongate, eaf_bypass, rdll_use_syscalls, copy_pe_header, transform_obfuscate, sleep_mask, rdll_use_driploading, rdll_dripload_delay)
-	Process_Inject.Variables = GenerateProcessInject(processinject_min_alloc, injector, inject_use_driploading, inject_dripload_delay)
+	Process_Inject.Variables = GenerateProcessInject(processinject_min_alloc, injector, inject_use_driploading, inject_dripload_delay, startrwx)
 	Beacon_GETPOST_Profile.Variables, Beacon_SSL.Variables = GenerateProfile(Profile, CDN, CDN_Value, cert_password, custom_cert, ProfilePath, Host)
 	fmt.Println("[*] Building Profile...")
 	Build(custom_cert, cert_password, outFile, Beacon_Com, Beacon_Stage_p1, Beacon_Stage_p2, Beacon_Stage_p3, Process_Inject, Beacon_PostEX, Beacon_GETPOST, Beacon_GETPOST_Profile, Beacon_SSL)
@@ -275,7 +275,7 @@ func GeneratePostProcessName(Post_EX_Process_Name, Keylogger string, ThreadSpoof
 		Beacon_PostEX.Variables["Post_EX_Process_Name"] = Struct.Post_EX_Process_Name[(num_PSPN - 1)]
 	}
 	if Post_EX_Process_Name == "" {
-		num_Post_EX_Process_Name, _ := strconv.Atoi(Utils.GenerateNumer(0, 15))
+		num_Post_EX_Process_Name, _ := strconv.Atoi(Utils.GenerateNumer(0, 16))
 		Beacon_PostEX.Variables["Post_EX_Process_Name"] = Struct.Post_EX_Process_Name[num_Post_EX_Process_Name]
 	}
 	if Keylogger == "GetAsyncKeyState" || Keylogger == "SetWindowsHookEx" {
@@ -476,11 +476,10 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 	}
 
 	if beacongate == "" {
-		Beacon_Stage_p1.Variables["beacongate"] = "None;"
+		Beacon_Stage_p1.Variables["beacongate"] = ""
 	} else if beacongate == "All" || beacongate == "Comms" || beacongate == "Core" || beacongate == "Cleanup" {
-		Beacon_Stage_p1.Variables["beacongate"] = beacongate + ";"
+		Beacon_Stage_p1.Variables["beacongate"] = "beacon_gate {\n\t    " + beacongate + ";\n\t}"
 	} else {
-		// Handle specific APIs
 		apis := strings.Split(beacongate, ",")
 		validAPIs := map[string]bool{
 			"InternetOpenA": true, "InternetConnectA": true, "CloseHandle": true,
@@ -504,17 +503,17 @@ func GeneratePE(beacon_PE string, syscall_method string, beacongate string, eaf_
 		}
 
 		if len(validatedAPIs) > 0 {
-			Beacon_Stage_p1.Variables["beacongate"] = strings.Join(validatedAPIs, ";\n        ") + ";"
+			Beacon_Stage_p1.Variables["beacongate"] = "beacon_gate {\n\t    " + strings.Join(validatedAPIs, ";\n\t    ") + ";\n\t}"
 		} else {
-			fmt.Println("[!] Warning: Invalid beacongate input. Reverting to 'None'.")
-			Beacon_Stage_p1.Variables["beacongate"] = "None;"
+			fmt.Println("[!] Warning: Invalid beacongate input. BeaconGate will be omitted.")
+			Beacon_Stage_p1.Variables["beacongate"] = ""
 		}
 	}
 
 	return Beacon_Stage_p1.Variables, Beacon_Stage_p2.Variables, syscall_method
 }
 
-func GenerateProcessInject(processinject_min_alloc, injector string, inject_use_driploading bool, inject_dripload_delay string) map[string]string {
+func GenerateProcessInject(processinject_min_alloc, injector string, inject_use_driploading bool, inject_dripload_delay string, startrwx bool) map[string]string {
 	Process_Inject := &Process_Inject{}
 	Process_Inject.Variables = make(map[string]string)
 	if processinject_min_alloc == "" {
@@ -538,6 +537,12 @@ func GenerateProcessInject(processinject_min_alloc, injector string, inject_use_
 		Process_Inject.Variables["injector"] = injector
 	} else {
 		log.Fatal("Error: Please provide a valid Process Injector option")
+	}
+
+	if startrwx {
+		Process_Inject.Variables["startrwx"] = "true"
+	} else {
+		Process_Inject.Variables["startrwx"] = "false"
 	}
 
 	if inject_use_driploading {

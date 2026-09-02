@@ -56,6 +56,9 @@ var Post_EX_Process_Name = []string{`
 `, `
 	set spawnto_x86 "%windir%\\syswow64\\svchost.exe";
 	set spawnto_x64 "%windir%\\sysnative\\svchost.exe";
+`, `
+	set spawnto_x86 "%windir%\\syswow64\\dllhost.exe";
+	set spawnto_x64 "%windir%\\sysnative\\dllhost.exe";
 `}
 
 var Pipename_list = []string{
@@ -1241,9 +1244,7 @@ stage {
 	set stomppe "true";
 	set cleanup "true";
 	set userwx "false";
-	beacon_gate {
-	    {{.Variables.beacongate}}
-	}
+	{{.Variables.beacongate}}
 	set syscall_method "{{.Variables.syscall_method}}";
 	set magic_mz_x86 "MZRE";
 	set magic_mz_x64 "{{.Variables.magic_mz_x64}}";
@@ -1491,7 +1492,7 @@ process-inject {
     # shape the content and properties of what we will inject
     set min_alloc "{{.Variables.processinject_min_alloc}}";
     set userwx    "false";
-    set startrwx "true";
+    set startrwx "{{.Variables.startrwx}}";
 	{{.Variables.inject_driploading}}
 	
     transform-x86 {

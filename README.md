@@ -137,6 +137,7 @@ Usage of ./sourcepoint:
         [13] pcaui.exe
         [14] powercfg.exe
         [15] svchost.exe
+        [16] dllhost.exe
   -Profile string
         HTTP GET/POST profile (Use the number):
         [1] Windowsupdate
@@ -159,6 +160,8 @@ Usage of ./sourcepoint:
         Initial beacon sleep time
   -SleepMask
         Enable Sleep Mask (default true)
+  -StartRWX
+        Use RWX as initial permissions for injected content (default true, set to false for RW)
   -SmartInject
         Enable Smart Inject (post-ex)
   -Stage string
@@ -343,6 +346,7 @@ RdllDriploadDelay:
 CheckinDelay:
 InjectUseDriploading: False
 InjectDriploadDelay:
+StartRWX: True
 ```
 
 ## CS 4.13 Compatibility Notes

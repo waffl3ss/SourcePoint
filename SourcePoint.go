@@ -55,6 +55,7 @@ type FlagOptions struct {
 	checkin_delay            string
 	inject_use_driploading   bool
 	inject_dripload_delay    string
+	startrwx                 bool
 }
 
 type conf struct {
@@ -101,6 +102,7 @@ type conf struct {
 	CheckinDelay         string `yaml:"CheckinDelay"`
 	InjectUseDriploading bool   `yaml:"InjectUseDriploading"`
 	InjectDriploadDelay  string `yaml:"InjectDriploadDelay"`
+	StartRWX             *bool  `yaml:"StartRWX"`
 }
 
 func (c *conf) getConf(yamlfile string) *conf {
@@ -181,7 +183,8 @@ func options() *FlagOptions {
 [12] mtstocom.exe
 [13] pcaui.exe
 [14] powercfg.exe
-[15] svchost.exe`)
+[15] svchost.exe
+[16] dllhost.exe`)
 	Profile := flag.String("Profile", "", `HTTP GET/POST profile (Use the number):
 [1] Windowsupdate
 [2] Slack
@@ -240,8 +243,9 @@ Example: "lznt1,rc4 \"64\",xor \"32\",base64"`)
 	checkin_delay := flag.String("CheckinDelay", "", "Delay in milliseconds before Beacon's initial check-in")
 	inject_use_driploading := flag.Bool("InjectUseDriploading", false, "Enable drip-loading for process injection")
 	inject_dripload_delay := flag.String("InjectDriploadDelay", "", "Delay in milliseconds between drip-load chunks for process injection")
+	startrwx := flag.Bool("StartRWX", true, "Use RWX as initial permissions for injected content (set to false for RW)")
 	flag.Parse()
-	return &FlagOptions{stage: *stage, sleeptime: *sleeptime, jitter: *jitter, useragent: *useragent, uri: *uri, customuri: *customuri, customuriGET: *customuriGET, customuriPOST: *customuriPOST, beacon_PE: *beacon_PE, processinject_min_alloc: *processinject_min_alloc, Post_EX_Process_Name: *Post_EX_Process_Name, metadata: *metadata, injector: *injector, Host: *Host, Profile: *Profile, ProfilePath: *ProfilePath, outFile: *outFile, custom_cert: *custom_cert, cert_password: *cert_password, CDN: *CDN, CDN_Value: *CDN_Value, Yaml: *Yaml, Datajitter: *Datajitter, Keylogger: *Keylogger, Forwarder: *Forwarder, tasks_max_size: *tasks_max_size, tasks_proxy_max_size: *tasks_proxy_max_size, tasks_dns_proxy_max_size: *tasks_dns_proxy_max_size, syscall_method: *syscall_method, httplib: *httplib, threadspoof: *threadspoof, beacongate: *beacongate, eaf_bypass: *eaf_bypass, rdll_use_syscalls: *rdll_use_syscalls, copy_pe_header: *copy_pe_header, transform_obfuscate: *transform_obfuscate, smartinject: *smartinject, sleep_mask: *sleep_mask, rdll_use_driploading: *rdll_use_driploading, rdll_dripload_delay: *rdll_dripload_delay, checkin_delay: *checkin_delay, inject_use_driploading: *inject_use_driploading, inject_dripload_delay: *inject_dripload_delay}
+	return &FlagOptions{stage: *stage, sleeptime: *sleeptime, jitter: *jitter, useragent: *useragent, uri: *uri, customuri: *customuri, customuriGET: *customuriGET, customuriPOST: *customuriPOST, beacon_PE: *beacon_PE, processinject_min_alloc: *processinject_min_alloc, Post_EX_Process_Name: *Post_EX_Process_Name, metadata: *metadata, injector: *injector, Host: *Host, Profile: *Profile, ProfilePath: *ProfilePath, outFile: *outFile, custom_cert: *custom_cert, cert_password: *cert_password, CDN: *CDN, CDN_Value: *CDN_Value, Yaml: *Yaml, Datajitter: *Datajitter, Keylogger: *Keylogger, Forwarder: *Forwarder, tasks_max_size: *tasks_max_size, tasks_proxy_max_size: *tasks_proxy_max_size, tasks_dns_proxy_max_size: *tasks_dns_proxy_max_size, syscall_method: *syscall_method, httplib: *httplib, threadspoof: *threadspoof, beacongate: *beacongate, eaf_bypass: *eaf_bypass, rdll_use_syscalls: *rdll_use_syscalls, copy_pe_header: *copy_pe_header, transform_obfuscate: *transform_obfuscate, smartinject: *smartinject, sleep_mask: *sleep_mask, rdll_use_driploading: *rdll_use_driploading, rdll_dripload_delay: *rdll_dripload_delay, checkin_delay: *checkin_delay, inject_use_driploading: *inject_use_driploading, inject_dripload_delay: *inject_dripload_delay, startrwx: *startrwx}
 
 }
 
@@ -301,6 +305,9 @@ func main() {
 		opt.checkin_delay = c.CheckinDelay
 		opt.inject_use_driploading = c.InjectUseDriploading
 		opt.inject_dripload_delay = c.InjectDriploadDelay
+		if c.StartRWX != nil {
+			opt.startrwx = *c.StartRWX
+		}
 	}
 
 	if opt.outFile == "" {
@@ -315,5 +322,5 @@ func main() {
 	if (opt.customuriGET != "" && opt.customuriPOST == "") || (opt.customuriGET == "" && opt.customuriPOST != "") {
 		log.Fatal("Error: When using CustomuriGET/CustomuriPOST, both must be sepecified")
 	}
-	Loader.GenerateOptions(opt.stage, opt.sleeptime, opt.jitter, opt.useragent, opt.uri, opt.customuri, opt.customuriGET, opt.customuriPOST, opt.beacon_PE, opt.processinject_min_alloc, opt.Post_EX_Process_Name, opt.metadata, opt.injector, opt.Host, opt.Profile, opt.ProfilePath, opt.outFile, opt.custom_cert, opt.cert_password, opt.CDN, opt.CDN_Value, opt.Datajitter, opt.Keylogger, opt.Forwarder, opt.tasks_max_size, opt.tasks_proxy_max_size, opt.tasks_dns_proxy_max_size, opt.syscall_method, opt.httplib, opt.threadspoof, opt.beacongate, opt.eaf_bypass, opt.rdll_use_syscalls, opt.copy_pe_header, opt.transform_obfuscate, opt.smartinject, opt.sleep_mask, opt.rdll_use_driploading, opt.rdll_dripload_delay, opt.checkin_delay, opt.inject_use_driploading, opt.inject_dripload_delay)
+	Loader.GenerateOptions(opt.stage, opt.sleeptime, opt.jitter, opt.useragent, opt.uri, opt.customuri, opt.customuriGET, opt.customuriPOST, opt.beacon_PE, opt.processinject_min_alloc, opt.Post_EX_Process_Name, opt.metadata, opt.injector, opt.Host, opt.Profile, opt.ProfilePath, opt.outFile, opt.custom_cert, opt.cert_password, opt.CDN, opt.CDN_Value, opt.Datajitter, opt.Keylogger, opt.Forwarder, opt.tasks_max_size, opt.tasks_proxy_max_size, opt.tasks_dns_proxy_max_size, opt.syscall_method, opt.httplib, opt.threadspoof, opt.beacongate, opt.eaf_bypass, opt.rdll_use_syscalls, opt.copy_pe_header, opt.transform_obfuscate, opt.smartinject, opt.sleep_mask, opt.rdll_use_driploading, opt.rdll_dripload_delay, opt.checkin_delay, opt.inject_use_driploading, opt.inject_dripload_delay, opt.startrwx)
 }
